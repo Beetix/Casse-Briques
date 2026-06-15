@@ -25,6 +25,37 @@ const paddle = {
 };
 
 // ---------------------------------------------------------------------------
+// Ball
+// ---------------------------------------------------------------------------
+
+const BALL_SPEED = 360; // px per second
+const ball = {
+  x: WIDTH / 2,
+  y: HEIGHT - 60,
+  radius: 8,
+  vx: 0,
+  vy: 0,
+  stuck: true, // resting on the paddle, waiting for launch
+};
+
+function resetBall() {
+  ball.x = paddle.x + paddle.width / 2;
+  ball.y = paddle.y - ball.radius - 1;
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.stuck = true;
+}
+
+function launchBall() {
+  if (!ball.stuck) return;
+  // Launch upward with a slight random horizontal angle.
+  const angle = (-Math.PI / 2) + (Math.random() * 0.6 - 0.3);
+  ball.vx = Math.cos(angle) * BALL_SPEED;
+  ball.vy = Math.sin(angle) * BALL_SPEED;
+  ball.stuck = false;
+}
+
+// ---------------------------------------------------------------------------
 // Input
 // ---------------------------------------------------------------------------
 
@@ -37,6 +68,7 @@ const input = {
 window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") input.left = true;
   if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") input.right = true;
+  if (e.key === " " || e.key === "ArrowUp") launchBall();
 });
 
 window.addEventListener("keyup", (e) => {
@@ -53,6 +85,8 @@ canvas.addEventListener("mousemove", (e) => {
 canvas.addEventListener("mouseleave", () => {
   input.mouseX = null;
 });
+
+canvas.addEventListener("mousedown", launchBall);
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -82,8 +116,55 @@ function updatePaddle(dt) {
   paddle.x = clamp(paddle.x, 0, WIDTH - paddle.width);
 }
 
+function updateBall(dt) {
+  if (ball.stuck) {
+    // Sit on top of the paddle until launched.
+    ball.x = paddle.x + paddle.width / 2;
+    ball.y = paddle.y - ball.radius - 1;
+    return;
+  }
+
+  ball.x += ball.vx * dt;
+  ball.y += ball.vy * dt;
+
+  // Walls.
+  if (ball.x - ball.radius < 0) {
+    ball.x = ball.radius;
+    ball.vx = Math.abs(ball.vx);
+  } else if (ball.x + ball.radius > WIDTH) {
+    ball.x = WIDTH - ball.radius;
+    ball.vx = -Math.abs(ball.vx);
+  }
+  if (ball.y - ball.radius < 0) {
+    ball.y = ball.radius;
+    ball.vy = Math.abs(ball.vy);
+  }
+
+  // Paddle collision.
+  if (
+    ball.vy > 0 &&
+    ball.y + ball.radius >= paddle.y &&
+    ball.y - ball.radius <= paddle.y + paddle.height &&
+    ball.x >= paddle.x &&
+    ball.x <= paddle.x + paddle.width
+  ) {
+    // Bounce angle depends on where the ball hit the paddle.
+    const hit = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+    const angle = (-Math.PI / 2) + hit * (Math.PI / 3); // up to 60° off vertical
+    ball.vx = Math.cos(angle) * BALL_SPEED;
+    ball.vy = Math.sin(angle) * BALL_SPEED;
+    ball.y = paddle.y - ball.radius - 1;
+  }
+
+  // Lost below the bottom edge.
+  if (ball.y - ball.radius > HEIGHT) {
+    resetBall();
+  }
+}
+
 function update(dt) {
   updatePaddle(dt);
+  updateBall(dt);
 }
 
 function drawPaddle() {
@@ -93,9 +174,17 @@ function drawPaddle() {
   ctx.fill();
 }
 
+function drawBall() {
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawPaddle();
+  drawBall();
 }
 
 // ---------------------------------------------------------------------------

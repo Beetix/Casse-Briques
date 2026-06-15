@@ -107,6 +107,9 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") input.left = true;
   if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") input.right = true;
   if (e.key === " " || e.key === "ArrowUp") launchBall();
+  if (e.key === "r" || e.key === "R") {
+    if (game.status !== "playing") resetGame();
+  }
 });
 
 window.addEventListener("keyup", (e) => {
@@ -135,9 +138,19 @@ function clamp(value, min, max) {
 // ---------------------------------------------------------------------------
 
 const game = {
-  running: true,
   lastTime: 0,
+  status: "playing", // "playing" | "gameover" | "win"
+  score: 0,
+  lives: 3,
 };
+
+function resetGame() {
+  game.status = "playing";
+  game.score = 0;
+  game.lives = 3;
+  buildBricks();
+  resetBall();
+}
 
 // ---------------------------------------------------------------------------
 // Update / draw
@@ -199,7 +212,12 @@ function updateBall(dt) {
 
   // Lost below the bottom edge.
   if (ball.y - ball.radius > HEIGHT) {
-    resetBall();
+    game.lives -= 1;
+    if (game.lives <= 0) {
+      game.status = "gameover";
+    } else {
+      resetBall();
+    }
   }
 }
 
@@ -216,6 +234,10 @@ function collideBricks() {
     if (dx * dx + dy * dy > ball.radius * ball.radius) continue;
 
     brick.alive = false;
+    game.score += 10;
+    if (bricks.every((b) => !b.alive)) {
+      game.status = "win";
+    }
 
     // Resolve along the shallower axis of overlap so the bounce direction
     // matches which face was hit.
@@ -231,6 +253,7 @@ function collideBricks() {
 }
 
 function update(dt) {
+  if (game.status !== "playing") return;
   updatePaddle(dt);
   updateBall(dt);
 }
@@ -259,11 +282,43 @@ function drawBricks() {
   }
 }
 
+function drawHud() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "18px 'Segoe UI', sans-serif";
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+  ctx.fillText("Score : " + game.score, 16, 14);
+  ctx.textAlign = "right";
+  ctx.fillText("Vies : " + "●".repeat(game.lives), WIDTH - 16, 14);
+}
+
+function drawOverlay(title, color) {
+  ctx.fillStyle = "rgba(5, 7, 15, 0.78)";
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillStyle = color;
+  ctx.font = "48px 'Segoe UI', sans-serif";
+  ctx.fillText(title, WIDTH / 2, HEIGHT / 2 - 40);
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "22px 'Segoe UI', sans-serif";
+  ctx.fillText("Score : " + game.score, WIDTH / 2, HEIGHT / 2 + 8);
+  ctx.font = "18px 'Segoe UI', sans-serif";
+  ctx.fillText("Appuie sur R pour rejouer", WIDTH / 2, HEIGHT / 2 + 48);
+}
+
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   drawBricks();
   drawPaddle();
   drawBall();
+  drawHud();
+
+  if (game.status === "gameover") drawOverlay("PERDU", "#f72585");
+  else if (game.status === "win") drawOverlay("GAGNÉ !", "#4cc9f0");
 }
 
 // ---------------------------------------------------------------------------
@@ -274,9 +329,7 @@ function loop(timestamp) {
   const dt = Math.min((timestamp - game.lastTime) / 1000, 0.05);
   game.lastTime = timestamp;
 
-  if (game.running) {
-    update(dt);
-  }
+  update(dt);
   draw();
 
   requestAnimationFrame(loop);

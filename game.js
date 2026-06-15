@@ -46,6 +46,44 @@ function resetBall() {
   ball.stuck = true;
 }
 
+// ---------------------------------------------------------------------------
+// Bricks
+// ---------------------------------------------------------------------------
+
+const BRICK = {
+  cols: 10,
+  rows: 6,
+  gap: 6,
+  top: 60,
+  side: 30,
+  height: 26,
+};
+
+const ROW_COLORS = ["#f72585", "#b5179e", "#7209b7", "#560bad", "#3a0ca3", "#4361ee"];
+
+let bricks = [];
+
+function buildBricks() {
+  bricks = [];
+  const playWidth = WIDTH - BRICK.side * 2;
+  const brickWidth = (playWidth - BRICK.gap * (BRICK.cols - 1)) / BRICK.cols;
+
+  for (let r = 0; r < BRICK.rows; r++) {
+    for (let c = 0; c < BRICK.cols; c++) {
+      bricks.push({
+        x: BRICK.side + c * (brickWidth + BRICK.gap),
+        y: BRICK.top + r * (BRICK.height + BRICK.gap),
+        width: brickWidth,
+        height: BRICK.height,
+        color: ROW_COLORS[r % ROW_COLORS.length],
+        alive: true,
+      });
+    }
+  }
+}
+
+buildBricks();
+
 function launchBall() {
   if (!ball.stuck) return;
   // Launch upward with a slight random horizontal angle.
@@ -156,9 +194,39 @@ function updateBall(dt) {
     ball.y = paddle.y - ball.radius - 1;
   }
 
+  // Bricks.
+  collideBricks();
+
   // Lost below the bottom edge.
   if (ball.y - ball.radius > HEIGHT) {
     resetBall();
+  }
+}
+
+function collideBricks() {
+  for (const brick of bricks) {
+    if (!brick.alive) continue;
+
+    // Closest point on the brick (AABB) to the ball centre.
+    const nearestX = clamp(ball.x, brick.x, brick.x + brick.width);
+    const nearestY = clamp(ball.y, brick.y, brick.y + brick.height);
+    const dx = ball.x - nearestX;
+    const dy = ball.y - nearestY;
+
+    if (dx * dx + dy * dy > ball.radius * ball.radius) continue;
+
+    brick.alive = false;
+
+    // Resolve along the shallower axis of overlap so the bounce direction
+    // matches which face was hit.
+    const overlapX = ball.radius - Math.abs(dx);
+    const overlapY = ball.radius - Math.abs(dy);
+    if (overlapX < overlapY) {
+      ball.vx = dx < 0 ? -Math.abs(ball.vx) : Math.abs(ball.vx);
+    } else {
+      ball.vy = dy < 0 ? -Math.abs(ball.vy) : Math.abs(ball.vy);
+    }
+    break; // one brick per frame keeps the bounce stable
   }
 }
 
@@ -181,8 +249,19 @@ function drawBall() {
   ctx.fill();
 }
 
+function drawBricks() {
+  for (const brick of bricks) {
+    if (!brick.alive) continue;
+    ctx.fillStyle = brick.color;
+    ctx.beginPath();
+    ctx.roundRect(brick.x, brick.y, brick.width, brick.height, 5);
+    ctx.fill();
+  }
+}
+
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  drawBricks();
   drawPaddle();
   drawBall();
 }

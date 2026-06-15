@@ -1,0 +1,39 @@
+:root {
+  --bg: #0b0e1a;
+  --frame: #1c2238;
+  --accent: #4cc9f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 0%, #141a30, var(--bg));
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #fff;
+  overflow: hidden;
+}
+
+.stage {
+  padding: 16px;
+}
+
+#game {
+  display: block;
+  background: #05070f;
+  border: 2px solid var(--frame);
+  border-radius: 10px;
+  box-shadow: 0 0 40px rgba(76, 201, 240, 0.15);
+  max-width: 100%;
+  max-height: 100vh;
+}
